@@ -13,14 +13,18 @@ pipeline {
             steps {
                 sh '''
                     docker run --rm \
-                    -v "$WORKSPACE:/workspace" \
-                    -w /workspace \
+                    --volumes-from jenkins \
+                    -w "$WORKSPACE" \
                     python:3.12-slim \
                     bash -c "
                         set -e
 
                         echo '===== Python Environment ====='
                         python --version
+
+                        echo '===== Checking Workspace ====='
+                        ls -la
+                        test -f requirements.txt
 
                         echo '===== Installing Dependencies ====='
                         pip install -r requirements.txt
@@ -32,12 +36,12 @@ pipeline {
                         pytest -v --junitxml=reports/test-results.xml
 
                         echo '===== Generating API Data ====='
-                        python -c 'from fastapi.testclient import TestClient; from app.main import app; c=TestClient(app); [c.post(\"/add\", json={\"num1\": i*10, \"num2\": i*5}).raise_for_status() for i in range(1,31)]; print(\"Generated 30 API records\")'
+                        python monitoring/generate_current.py
 
                         echo '===== Running Evidently Monitoring ====='
                         python -u monitoring/evidently_monitor.py
 
-                        echo '===== Pipeline Tasks Completed ====='
+                        echo '===== Pipeline Completed ====='
                     "
                 '''
             }
